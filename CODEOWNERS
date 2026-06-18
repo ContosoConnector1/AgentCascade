@@ -1,0 +1,14 @@
+# Default
+*                                   @felixokafor830
+
+# Prompts + eval — Data Science
+/src/agent_cascade/orchestrator/    @marcuschen830
+/src/agent_cascade/subagents/       @marcuschen830
+/src/agent_cascade/eval/            @marcuschen830
+
+# Connectors + memory — Eng
+/src/agent_cascade/connectors/      @anadelgado830 @felixokafor830
+/src/agent_cascade/memory/          @anadelgado830 @felixokafor830
+
+# Architecture + threat model
+/docs/                              @anadelgado830
