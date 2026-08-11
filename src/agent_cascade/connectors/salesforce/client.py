@@ -12,10 +12,14 @@ YELLOW and not deployed to staging.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import re
 
 import httpx
 
 from agent_cascade.connectors.base import Connector, CustomerSignal
+
+
+_SALESFORCE_ACCOUNT_ID_RE = re.compile(r"^001[A-Za-z0-9]{12}(?:[A-Za-z0-9]{3})?$")
 
 
 class SalesforceConnector(Connector):
@@ -28,12 +32,27 @@ class SalesforceConnector(Connector):
             timeout=10.0,
         )
 
+    async def __aenter__(self) -> SalesforceConnector:
+        return self
+
+    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        """Close the underlying HTTP client and release pooled connections."""
+        await self._client.aclose()
+
     async def healthcheck(self) -> bool:
         resp = await self._client.get("/services/data/v60.0/limits")
         return resp.status_code == 200
 
     async def fetch_signals(self, account_id: str) -> list[CustomerSignal]:
         """Return renewal-date and ARR signals for one account."""
+        if not _SALESFORCE_ACCOUNT_ID_RE.fullmatch(account_id):
+            raise ValueError(
+                "account_id must be a 15- or 18-character Salesforce Account ID"
+            )
+
         soql = (
             "SELECT Id, Name, Renewal_Date__c, ARR__c "
             f"FROM Account WHERE Id = '{account_id}'"
