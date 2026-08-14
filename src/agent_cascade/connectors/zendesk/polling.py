@@ -19,57 +19,33 @@ from agent_cascade.connectors.base import CustomerSignal
 # How far back each reconciliation pass looks (overlaps to avoid gaps).
 LOOKBACK_SECONDS = 900
 
-# Safety valve: a malformed/looping `next_page` chain must not hang a pass.
-MAX_PAGES = 100
-
 
 class ZendeskReconciler:
     """Backfills missed ticket updates via the Search API."""
 
     def __init__(self, client: httpx.AsyncClient) -> None:
         self._client = client
-        # Ticket IDs are tenant-local, so dedup state must be scoped per account.
-        self._seen_ids: set[tuple[str, int]] = set()
+        self._seen_ids: set[int] = set()
 
     async def reconcile(self, account_id: str, since: datetime) -> list[CustomerSignal]:
-        """Return signals for ticket updates the webhook stream may have missed.
-
-        Walks the Search API's `next_page` chain so a backlog spanning more than
-        one page is fully reconciled.
-        """
+        """Return signals for ticket updates the webhook stream may have missed."""
         ts = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        resp = await self._client.get(
+            "/search.json",
+            params={"query": f"type:ticket organization:{account_id} updated>{ts}"},
+        )
+        resp.raise_for_status()
         out: list[CustomerSignal] = []
-
-        url: str | None = "/search.json"
-        params: dict[str, str] | None = {
-            "query": f"type:ticket organization:{account_id} updated>{ts}"
-        }
-        pages = 0
-
-        while url is not None:
-            resp = await self._client.get(url, params=params)
-            resp.raise_for_status()
-            body = resp.json()
-
-            for t in body.get("results", []):
-                key = (account_id, t["id"])
-                if key in self._seen_ids:
-                    continue
-                self._seen_ids.add(key)
-                out.append(CustomerSignal(
-                    account_id=account_id,
-                    source="zendesk",
-                    kind="ticket_update",
-                    observed_at=datetime.now(timezone.utc),
-                    payload={"ticket_id": t["id"], "status": t.get("status"),
-                             "backfilled": True},
-                ))
-
-            pages += 1
-            if pages >= MAX_PAGES:
-                break
-            # `next_page` is an absolute URL that already carries the query params.
-            url = body.get("next_page")
-            params = None
-
+        for t in resp.json().get("results", []):
+            if t["id"] in self._seen_ids:
+                continue
+            self._seen_ids.add(t["id"])
+            out.append(CustomerSignal(
+                account_id=account_id,
+                source="zendesk",
+                kind="ticket_update",
+                observed_at=datetime.now(timezone.utc),
+                payload={"ticket_id": t["id"], "status": t.get("status"),
+                         "backfilled": True},
+            ))
         return out
