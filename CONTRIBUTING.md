@@ -11,7 +11,7 @@ Phase 1 is built in short sprints tracked in Jira project `AC`. Conventions:
 
 | Area | Owner |
 |---|---|
-| Orchestrator + sub-agent prompts, eval | Marcus (DS) |
-| Connectors, memory, architecture | Ana (Eng), Felix (SWE) |
-| Frontier sign-up + UI | Felix (SWE), Leo (UX) |
-| Launch coordination | Priya (PM) |
+| Orchestrator + sub-agent prompts, eval | Mayank (DS) |
+| Connectors, memory, architecture | Vijay (Eng), Sandeep (SWE) |
+| Frontier sign-up + UI | Sandeep (SWE), Abhishek (UX) |
+| Launch coordination | Piyush (PM) |
